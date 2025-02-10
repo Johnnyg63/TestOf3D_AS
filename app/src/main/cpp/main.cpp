@@ -32,6 +32,8 @@
 
 #define OLC_PGE_APPLICATION
 #define OLC_IMAGE_STB
+#define OLC_ENABLE_EXPERIMENTAL
+#include "utilities/olcUTIL_Hardware3D.h"
 #include "olcPixelGameEngine_Mobile.h"
 
 #define OLC_PGEX_MINIAUDIO
@@ -49,8 +51,14 @@ class PGE_Mobile : public olc::PixelGameEngine {
 public:
 
     PGE_Mobile() {
-        sAppName = "Android/iOS Demo";
+        sAppName = "Quad3D";
     }
+
+    olc::mf4d matWorld;
+    olc::mf4d matView;
+    olc::mf4d matProject;
+    olc::utils::hw3d::mesh meshTeapot;
+    olc::Renderable gfx1;
 
     /* Vectors */
     std::vector<std::string> vecMessages;
@@ -180,6 +188,31 @@ public:
         sprOLCPGEMobLogo = new olc::Sprite("images/olcpgemobilelogo.png");
         decOLCPGEMobLogo = new olc::Decal(sprOLCPGEMobLogo);
 
+        gfx1.Load("images/clay.png");
+
+        float fAspect = float(GetScreenSize().y) / float(GetScreenSize().x);
+        float S = 1.0f / (tan(3.14159f * 0.25f));
+        float f = 1000.0f;
+        float n = 0.1f;
+
+        matProject(0, 0) = fAspect;	 matProject(0, 1) = 0.0f; matProject(0, 2) = 0.0f;	               matProject(0, 3) = 0.0f;
+        matProject(1, 0) = 0.0f; matProject(1, 1) = 1;    matProject(1, 2) = 0.0f;                 matProject(1, 3) = 0.0f;
+        matProject(2, 0) = 0.0f; matProject(2, 1) = 0.0f; matProject(2, 2) = -(f / (f - n));       matProject(2, 3) = -1.0f;
+        matProject(3, 0) = 0.0f; matProject(3, 1) = 0.0f; matProject(3, 2) = -((f * n) / (f - n)); matProject(3, 3) = 0.0f;
+
+        matWorld.identity();
+        matView.identity();
+
+        // ok we need to extract the file folks
+        std::string storagePath = (std::string)app_GetInternalAppStorage() + "/objectfiles/teapot.obj";
+        fileRes = olc::filehandler->ExtractFileFromAssets("objectfiles/teapot.obj", storagePath);
+        auto t = olc::utils::hw3d::LoadObj(storagePath);
+        if (t.has_value())
+            meshTeapot = *t;
+        else
+            return false;
+
+        Clear(olc::CYAN);
 
         return true;
     }
@@ -209,6 +242,9 @@ public:
 
     }
 
+    float fThetaX = 0;
+    float fThetaY = 0;
+
     bool OnUserUpdate(float fElapsedTime) override {
 
         SetDrawTarget(nullptr);
@@ -237,35 +273,23 @@ public:
         sMessage = "---";
         vecMessages.push_back(sMessage);
 
+        //sMessage = "Volume <" + std::to_string(volume) + "> Btn Up, Btn Down";
+        //vecMessages.push_back(sMessage);
 
-        sMessage = "Volume <" + std::to_string(volume) + "> Btn Up, Btn Down";
-        vecMessages.push_back(sMessage);
-
-        if (ma.IsPlaying(song1))
-        {
-            sMessage = "Touch Screen: Pause";
-            vecMessages.push_back(sMessage);
-        }
-        else
-        {
-            sMessage = "Touch Screen: Play";
-            vecMessages.push_back(sMessage);
-        }
+        //if (ma.IsPlaying(song1))
+        //{
+           // sMessage = "Touch Screen: Pause";
+           // vecMessages.push_back(sMessage);
+       // }
+       // else
+        //{
+            //sMessage = "Touch Screen: Play";
+            //vecMessages.push_back(sMessage);
+        //}
 
         sMessage = "---";
         vecMessages.push_back(sMessage);
 
-        sMessage = "Music: Joy Ride [Full version] by MusicLFiles";
-        vecMessages.push_back(sMessage);
-        sMessage = "Free download:";
-        vecMessages.push_back(sMessage);
-        sMessage = "https://filmmusic.io/song/11627-joy-ride-full-version";
-        vecMessages.push_back(sMessage);
-        sMessage = "Licensed under CC BY 4.0:";
-        vecMessages.push_back(sMessage);
-        sMessage = "https://filmmusic.io/standard-license";
-        vecMessages.push_back(sMessage);
-        vecMessages.push_back(sLineBreak);
 
         std::string sTouchScreen = "Touch the screen with two fingers";
         vecMessages.push_back(sTouchScreen);
@@ -275,7 +299,7 @@ public:
         olc::vi2d centreScreenPos = GetScreenSize();
         centreScreenPos.x = centreScreenPos.x / 2;
         centreScreenPos.y = centreScreenPos.y / 2;
-        DrawTargetPointer(centreScreenPos, 50, 10);
+        //DrawTargetPointer(centreScreenPos, 50, 10);
 
         // Get the default touch point
         // This is always Index 0 and first touch point
@@ -317,12 +341,50 @@ public:
             }
         }
 
-        // Called once per frame, draws random coloured pixels
-        // Uncomment me if you dare
-        /*for (int x = 0; x < ScreenWidth(); x++)
-            for (int y = 0; y < ScreenHeight(); y++)
-                Draw(x, y, olc::Pixel(rand() % 256, rand() % 256, rand() % 256));
-        */
+
+        fThetaX += fElapsedTime * 0.5f;
+        fThetaY += fElapsedTime * 1.3f;
+
+        olc::mf4d m1, m2, m3, m4;
+
+        m1.rotateY(fThetaY);
+        m2.rotateX(fThetaX);
+        m3.translate(0.0, -4.0, -10.0);
+        matWorld = m3 * m1 * m2;
+
+        ClearBuffer(olc::CYAN, true);
+
+
+        HW3D_Projection(matProject.m);
+
+        for (size_t i = 0; i < meshTeapot.pos.size(); i += 3)
+        {
+            const auto& p0 = meshTeapot.pos[i + 0];
+            const auto& p1 = meshTeapot.pos[i + 1];
+            const auto& p2 = meshTeapot.pos[i + 2];
+
+            olc::vf3d vCross = olc::vf3d(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]).cross(olc::vf3d(p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])).norm();
+
+            olc::vf3d vLight = olc::vf3d(1.0f, 1.0f, 1.0f).norm();
+
+            float illum = std::clamp(vCross.dot(vLight), 0.0f, 1.0f) * 0.6f + 0.4f;
+            meshTeapot.col[i + 0] = olc::PixelF(illum, illum, illum, 1.0f);
+            meshTeapot.col[i + 1] = olc::PixelF(illum, illum, illum, 1.0f);
+            meshTeapot.col[i + 2] = olc::PixelF(illum, illum, illum, 1.0f);
+        }
+
+
+        HW3D_DrawLine((matView * matWorld).m, { 0.0f, 0.0f, 0.0f }, { 100.0f, 100.0f, 100.0f }, olc::RED);
+
+        HW3D_DrawLineBox((matView * matWorld).m, { 0.0f, 0.0f, 0.0f }, { 10.0f, 10.0f, 10.0f }, olc::YELLOW);
+
+        HW3D_DrawObject((matView * matWorld).m, nullptr, meshTeapot.layout, meshTeapot.pos, meshTeapot.uv, meshTeapot.col);
+
+        // Make sure we have not botched 2D Decals
+        DrawDecal(GetTouchPos(), gfx1.Decal());
+
+
+
 
         nStep = 10;
         for (auto& s : vecMessages)

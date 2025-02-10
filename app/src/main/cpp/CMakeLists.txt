@@ -7,7 +7,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 
 # C++ options NOTE: it is best to add
-
 # add_compile_options(-O3) # Set optimization level
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize")
 # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorize")
