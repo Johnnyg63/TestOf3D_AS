@@ -225,7 +225,7 @@ public:
         sMessage = "PGE Mobile Release 2.2.X";
         vecMessages.push_back(sMessage);
 
-        sMessage = "Now With iOS Support";
+        sMessage = "Now With 3D Support";
         vecMessages.push_back(sMessage);
 
         sMessage = "NOTE: Android FPS = CPU FPS, iOS = GPU FPS";
