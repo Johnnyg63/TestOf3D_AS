@@ -9321,7 +9321,7 @@ namespace olc {
 
             // 1: Setup out OpenGLES settings (NOTE: these are not the same as in the PGE 2.0)
             EGLint const attribute_list[] = { EGL_SURFACE_TYPE, EGL_OPENGL_ES2_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8,
-                                              EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_DEPTH_SIZE, 16, EGL_NONE };
+                                              EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_DEPTH_SIZE, 24, EGL_NONE };
             EGLint const context_config[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
             EGLint num_config;
             EGLint w, h, format;
@@ -9881,7 +9881,7 @@ namespace olc {
                     EGL_GREEN_SIZE, 8,
                     EGL_BLUE_SIZE, 8,
                     EGL_ALPHA_SIZE, 8,
-                    EGL_DEPTH_SIZE, 16,
+                    EGL_DEPTH_SIZE, 24,
                     EGL_NONE };
 
             // The default display is probably what you want on Android
@@ -9909,7 +9909,7 @@ namespace olc {
                                && eglGetConfigAttrib(display, config, EGL_DEPTH_SIZE, &depth)
                             ) {
 
-                            return red == 8 && green == 8 && blue == 8 && alpha == 8 && depth == 16;
+                            return red == 8 && green == 8 && blue == 8 && alpha == 8 && depth == 24;
                         }
                         return false;
                     });
