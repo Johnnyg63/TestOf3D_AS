@@ -1,9 +1,3 @@
-//
-// Created by jgalv on 10/02/2025.
-//
-
-#ifndef TESTOF3D_AS_OLCUTIL_HARDWARE3D_H
-#define TESTOF3D_AS_OLCUTIL_HARDWARE3D_H
 
 /*
 	OneLoneCoder - Hardware3D v1.0
@@ -218,8 +212,8 @@ namespace olc
             return (this->x != rhs.x || this->y != rhs.y || this != rhs.z);
         }
 
-        // Updated to string_view CLang was upset with std::string
         // Return this vector as a std::string, of the form "(x,y)"
+        // Updated to use string_view as project is still in C++17
         inline constexpr std::string_view str() const
         {
             return std::string_view("(") + std::to_string(this->x) + "," + std::to_string(this->y) + "," + std::to_string(this->z) + ")";
@@ -748,11 +742,11 @@ namespace olc::utils::hw3d
 
         // Bottom
         m.pos.push_back(verts[7].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 0, 1 }); m.col.push_back(olc::WHITE);
-        m.pos.push_back(verts[3].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 0, 0 }); m.col.push_back(olc::WHITE);
+        m.pos.push_back(verts[4].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 0, 0 }); m.col.push_back(olc::WHITE);
         m.pos.push_back(verts[0].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 1, 0 }); m.col.push_back(olc::WHITE);
         m.pos.push_back(verts[7].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 0, 1 }); m.col.push_back(olc::WHITE);
         m.pos.push_back(verts[0].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 1, 0 }); m.col.push_back(olc::WHITE);
-        m.pos.push_back(verts[4].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 1, 1 }); m.col.push_back(olc::WHITE);
+        m.pos.push_back(verts[3].a()); m.norm.push_back({ 0, -1, 0, 0 }); m.uv.push_back({ 1, 1 }); m.col.push_back(olc::WHITE);
 
         return m;
     }
@@ -877,5 +871,3 @@ namespace olc::utils::hw3d
     }
 
 }
-
-#endif //TESTOF3D_AS_OLCUTIL_HARDWARE3D_H

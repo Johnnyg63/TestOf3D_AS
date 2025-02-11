@@ -2229,6 +2229,13 @@ namespace olc {
         uint32_t points = 0;
     };
 
+    enum class CullMode : uint8_t
+    {
+        NONE = 0,
+        CW = 1,
+        CCW = 2
+    };
+
     struct GPUTask
     {
         //   x      y      z      w      u      v       rgb
@@ -2244,6 +2251,8 @@ namespace olc {
                                               0, 0, 1, 0,
                                               0, 0, 0, 1
                                       } };
+        olc::CullMode cull = olc::CullMode::NONE;
+        olc::Pixel tint = olc::WHITE;
     };
 
     /// <summary>
@@ -3754,44 +3763,39 @@ namespace olc {
 
     public:
 
-        // Experimental Lightweight 3D Routines ================
-#ifdef OLC_ENABLE_EXPERIMENTAL
-        // Set Manual View Matrix
-		void HW3D_Projection(const std::array<float, 16>& m);
+        // HW3D - Lightweight 3D Rendering
+        // Set Manual Projection Matrix
+        void HW3D_Projection(const std::array<float, 16>& m);
+        // 3D Rendering is tested against depth buffer
+        void HW3D_EnableDepthTest(const bool bEnableDepth);
+        // 3D Rendering cull faces depending on winding order
+        void HW3D_SetCullMode(const olc::CullMode mode);
 
-		// Draws a 3D Quad
-		void HW3D_DrawQuad3D(
-			olc::Decal* decal,
-			const std::array<float, 16>& matModelView,
-			const std::vector<std::array<float, 3>>& pos,
-			const olc::Pixel& tint);
+        // Draws a 3D Mesh structure (as defined by olc::DecalStructure)
+        void HW3D_DrawObject(
+                const std::array<float, 16>& matModelView,
+                olc::Decal* decal,
+                const olc::DecalStructure layout,
+                const std::vector<std::array<float, 4>>& pos,
+                const std::vector<std::array<float, 2>>& uv,
+                const std::vector<olc::Pixel>& col,
+                const olc::Pixel tint = olc::WHITE);
 
-		// Draws a 3D Mesh structure (as defined by olc::DecalStructure)
-		void HW3D_DrawObject(
-			const std::array<float, 16>& matModelView,
-			olc::Decal* decal,
-			const olc::DecalStructure layout,
-			const std::vector<std::array<float, 4>>& pos,
-			const std::vector<std::array<float, 2>>& uv,
-			const std::vector<olc::Pixel>& col,
-			const olc::Pixel tint = olc::WHITE);
+        // Draws a 3D line from pos1 to pos2
+        void HW3D_DrawLine(
+                const std::array<float, 16>& matModelView,
+                const std::array<float, 4>& pos1,
+                const std::array<float, 4>& pos2,
+                const olc::Pixel col = olc::WHITE);
 
-		void HW3D_DrawLine(
-			const std::array<float, 16>& matModelView,
-			const std::array<float, 4>& pos1,
-			const std::array<float, 4>& pos2,
-			const olc::Pixel col = olc::WHITE);
+        // Draws a 3D line box at pos, and dimensions size
+        void HW3D_DrawLineBox(
+                const std::array<float, 16>& matModelView,
+                const std::array<float, 4>& pos,
+                const std::array<float, 4>& size,
+                const olc::Pixel col = olc::WHITE);
 
-		void HW3D_DrawLineBox(
-			const std::array<float, 16>& matModelView,
-			const std::array<float, 4>& pos1,
-			const std::array<float, 4>& pos2,
-			const olc::Pixel col = olc::WHITE);
 
-		// 3D Rendering Flags
-		void HW3D_EnableDepthTest(const bool bEnableDepth);
-		void HW3D_EnableBackfaceCulling(const bool bEnableCull);
-#endif
     public: // Branding
         /// <summary>
         /// Your Amazing PGE Mobile Game NAME!
@@ -3833,6 +3837,10 @@ namespace olc {
         bool        bPixelCohesion = false;
         DecalMode   nDecalMode = DecalMode::NORMAL;
         DecalStructure nDecalStructure = DecalStructure::FAN;
+        // Lightweight 3D
+        CullMode	nHW3DCullMode = CullMode::NONE;
+        bool		bHW3DDepthTest = true;
+
         std::function<olc::Pixel(const int x, const int y, const olc::Pixel&, const olc::Pixel&)> funcPixelMode;
         std::chrono::time_point<std::chrono::system_clock> m_tp1, m_tp2;
         std::vector<olc::vi2d> vFontSpacing;
@@ -6059,113 +6067,107 @@ namespace olc {
         vLayers[nTargetLayer].vecDecalInstance.push_back(di);
     }
 
-#ifdef OLC_ENABLE_EXPERIMENTAL
-    #ifdef OLC_ENABLE_EXPERIMENTAL
 	// Lightweight 3D
+    void PixelGameEngine::HW3D_Projection(const std::array<float, 16>& m)
+    {
+        renderer->Set3DProjection(m);
+    }
 
-	void PixelGameEngine::HW3D_Projection(const std::array<float, 16>& m)
-	{
-		renderer->Set3DProjection(m);
-	}
+    void PixelGameEngine::HW3D_EnableDepthTest(const bool bEnableDepth)
+    {
+        bHW3DDepthTest = bEnableDepth;
+    }
 
-	void PixelGameEngine::HW3D_DrawQuad3D(olc::Decal* decal, const std::array<float, 16>& matModelView, const std::vector<std::array<float, 3>>& pos, const olc::Pixel& tint)
-	{
-		GPUTask task;
-		task.decal = decal;
-		task.mode = nDecalMode;
-		task.structure = nDecalStructure;
-		task.depth = true;
-		task.mvp = matModelView;
-		task.vb = {
-			{pos[0][0], pos[0][1], pos[0][2], 1.0f, 0.0f, 0.0f, tint.n},
-			{pos[1][0], pos[1][1], pos[1][2], 1.0f, 0.0f, 1.0f, tint.n},
-			{pos[2][0], pos[2][1], pos[2][2], 1.0f, 1.0f, 1.0f, tint.n},
-			{pos[3][0], pos[3][1], pos[3][2], 1.0f, 1.0f, 0.0f, tint.n},
-		};
-		vLayers[nTargetLayer].vecGPUTasks.push_back(task);
-	}
+    void PixelGameEngine::HW3D_SetCullMode(const olc::CullMode mode)
+    {
+        nHW3DCullMode = mode;
+    }
 
-	void PixelGameEngine::HW3D_DrawObject(const std::array<float, 16>& matModelView, olc::Decal* decal, const olc::DecalStructure layout, const std::vector<std::array<float, 4>>& pos, const std::vector<std::array<float, 2>>& uv, const std::vector<olc::Pixel>& col, const olc::Pixel tint)
-	{
-		GPUTask task;
-		task.decal = decal;
-		task.mode = nDecalMode;
-		task.structure = layout;
-		task.depth = true;
-		task.mvp = matModelView;
-		task.vb.resize(pos.size());
+    void PixelGameEngine::HW3D_DrawObject(const std::array<float, 16>& matModelView, olc::Decal* decal, const olc::DecalStructure layout, const std::vector<std::array<float, 4>>& pos, const std::vector<std::array<float, 2>>& uv, const std::vector<olc::Pixel>& col, const olc::Pixel tint)
+    {
+        GPUTask task;
+        task.decal = decal;
+        task.mode = nDecalMode;
+        task.structure = layout;
+        task.depth = bHW3DDepthTest;
+        task.cull = nHW3DCullMode;
+        task.mvp = matModelView;
+        task.tint = tint;
+        task.vb.resize(pos.size());
 
-		for (size_t i = 0; i < pos.size(); i++)
-			task.vb[i] = { pos[i][0], pos[i][1], pos[i][2], 1.0f, uv[i][0], uv[i][1], col[i].n };
+        for (size_t i = 0; i < pos.size(); i++)
+            task.vb[i] = { pos[i][0], pos[i][1], pos[i][2], 1.0f, uv[i][0], uv[i][1], col[i].n };
 
-		vLayers[nTargetLayer].vecGPUTasks.push_back(task);
-	}
+        vLayers[nTargetLayer].vecGPUTasks.push_back(task);
+    }
 
-	void PixelGameEngine::HW3D_DrawLine(const std::array<float, 16>& matModelView, const std::array<float, 4>& pos1, const std::array<float, 4>& pos2, const olc::Pixel col)
-	{
-		GPUTask task;
-		task.decal = nullptr;
-		task.mode = olc::DecalMode::WIREFRAME;
-		task.structure = olc::DecalStructure::LINE;
-		task.depth = true;
-		task.mvp = matModelView;
-		task.vb =
-		{
-			{ pos1[0], pos1[1], pos1[2], 1.0f, 0.0f, 0.0f, col.n},
-			{ pos2[0], pos2[1], pos2[2], 1.0f, 0.0f, 0.0f, col.n}
-		};
+    void PixelGameEngine::HW3D_DrawLine(const std::array<float, 16>& matModelView, const std::array<float, 4>& pos1, const std::array<float, 4>& pos2, const olc::Pixel col)
+    {
+        GPUTask task;
+        task.decal = nullptr;
+        task.mode = olc::DecalMode::WIREFRAME;
+        task.structure = olc::DecalStructure::LINE;
+        task.depth = bHW3DDepthTest;
+        task.cull = nHW3DCullMode;
+        task.mvp = matModelView;
+        task.tint = olc::WHITE;
+        task.vb =
+                {
+                        { pos1[0], pos1[1], pos1[2], 1.0f, 0.0f, 0.0f, col.n},
+                        { pos2[0], pos2[1], pos2[2], 1.0f, 0.0f, 0.0f, col.n}
+                };
 
-		vLayers[nTargetLayer].vecGPUTasks.push_back(task);
-	}
+        vLayers[nTargetLayer].vecGPUTasks.push_back(task);
+    }
 
-	void PixelGameEngine::HW3D_DrawLineBox(const std::array<float, 16>& matModelView, const std::array<float, 4>& pos1, const std::array<float, 4>& pos2, const olc::Pixel col)
-	{
-		GPUTask task;
-		task.decal = nullptr;
-		task.mode = nDecalMode;
-		task.structure = olc::DecalStructure::LINE;
-		task.depth = true;
-		task.mvp = matModelView;
+    void PixelGameEngine::HW3D_DrawLineBox(const std::array<float, 16>& matModelView, const std::array<float, 4>& pos, const std::array<float, 4>& size, const olc::Pixel col)
+    {
+        GPUTask task;
+        task.decal = nullptr;
+        task.mode = nDecalMode;
+        task.structure = olc::DecalStructure::LINE;
+        task.depth = bHW3DDepthTest;
+        task.cull = nHW3DCullMode;
+        task.mvp = matModelView;
+        task.tint = olc::WHITE;
 
-		const float ox = pos1[0];
-		const float oy = pos1[1];
-		const float oz = pos1[2];
-		const float sx = pos2[0];
-		const float sy = pos2[1];
-		const float sz = pos2[2];
+        const float ox = pos[0];
+        const float oy = pos[1];
+        const float oz = pos[2];
+        const float sx = size[0];
+        const float sy = size[1];
+        const float sz = size[2];
 
-		const std::array<float, 3> p0 = { {ox, oy, oz} };
-		const std::array<float, 3> p1 = { {ox + sx, oy, oz} };
-		const std::array<float, 3> p2 = { {ox + sx, oy + sy, oz} };
-		const std::array<float, 3> p3 = { {ox, oy + sy, oz} };
+        const std::array<float, 3> p0 = { {ox, oy, oz} };
+        const std::array<float, 3> p1 = { {ox+sx, oy, oz} };
+        const std::array<float, 3> p2 = { {ox+sx, oy+sy, oz} };
+        const std::array<float, 3> p3 = { {ox, oy+sy, oz} };
 
-		const std::array<float, 3> p4 = { {ox, oy, oz + sz} };
-		const std::array<float, 3> p5 = { {ox + sx, oy, oz + sz} };
-		const std::array<float, 3> p6 = { {ox + sx, oy + sy, oz + sz} };
-		const std::array<float, 3> p7 = { {ox, oy + sy, oz + sz} };
+        const std::array<float, 3> p4 = { {ox, oy, oz+sz} };
+        const std::array<float, 3> p5 = { {ox+sx, oy, oz+sz} };
+        const std::array<float, 3> p6 = { {ox+sx, oy+sy, oz+sz} };
+        const std::array<float, 3> p7 = { {ox, oy+sy, oz+sz} };
 
-		task.vb =
-		{
-			{ p0[0], p0[1], p0[2], 1.0f, 0.0f, 0.0f, col.n }, { p1[0], p1[1], p1[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p1[0], p1[1], p1[2], 1.0f, 0.0f, 0.0f, col.n }, { p2[0], p2[1], p2[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p2[0], p2[1], p2[2], 1.0f, 0.0f, 0.0f, col.n }, { p3[0], p3[1], p3[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p3[0], p3[1], p3[2], 1.0f, 0.0f, 0.0f, col.n }, { p0[0], p0[1], p0[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p4[0], p4[1], p4[2], 1.0f, 0.0f, 0.0f, col.n }, { p5[0], p5[1], p5[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p5[0], p5[1], p5[2], 1.0f, 0.0f, 0.0f, col.n }, { p6[0], p6[1], p6[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p6[0], p6[1], p6[2], 1.0f, 0.0f, 0.0f, col.n }, { p7[0], p7[1], p7[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p7[0], p7[1], p7[2], 1.0f, 0.0f, 0.0f, col.n }, { p4[0], p4[1], p4[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p0[0], p0[1], p0[2], 1.0f, 0.0f, 0.0f, col.n }, { p4[0], p4[1], p4[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p1[0], p1[1], p1[2], 1.0f, 0.0f, 0.0f, col.n }, { p5[0], p5[1], p5[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p2[0], p2[1], p2[2], 1.0f, 0.0f, 0.0f, col.n }, { p6[0], p6[1], p6[2], 1.0f, 0.0f, 0.0f, col.n },
-			{ p3[0], p3[1], p3[2], 1.0f, 0.0f, 0.0f, col.n }, { p7[0], p7[1], p7[2], 1.0f, 0.0f, 0.0f, col.n },
-		};
+        task.vb =
+                {
+                        { p0[0], p0[1], p0[2], 1.0f, 0.0f, 0.0f, col.n }, { p1[0], p1[1], p1[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p1[0], p1[1], p1[2], 1.0f, 0.0f, 0.0f, col.n }, { p2[0], p2[1], p2[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p2[0], p2[1], p2[2], 1.0f, 0.0f, 0.0f, col.n }, { p3[0], p3[1], p3[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p3[0], p3[1], p3[2], 1.0f, 0.0f, 0.0f, col.n }, { p0[0], p0[1], p0[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p4[0], p4[1], p4[2], 1.0f, 0.0f, 0.0f, col.n }, { p5[0], p5[1], p5[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p5[0], p5[1], p5[2], 1.0f, 0.0f, 0.0f, col.n }, { p6[0], p6[1], p6[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p6[0], p6[1], p6[2], 1.0f, 0.0f, 0.0f, col.n }, { p7[0], p7[1], p7[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p7[0], p7[1], p7[2], 1.0f, 0.0f, 0.0f, col.n }, { p4[0], p4[1], p4[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p0[0], p0[1], p0[2], 1.0f, 0.0f, 0.0f, col.n }, { p4[0], p4[1], p4[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p1[0], p1[1], p1[2], 1.0f, 0.0f, 0.0f, col.n }, { p5[0], p5[1], p5[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p2[0], p2[1], p2[2], 1.0f, 0.0f, 0.0f, col.n }, { p6[0], p6[1], p6[2], 1.0f, 0.0f, 0.0f, col.n },
+                        { p3[0], p3[1], p3[2], 1.0f, 0.0f, 0.0f, col.n }, { p7[0], p7[1], p7[2], 1.0f, 0.0f, 0.0f, col.n },
+                };
 
-		vLayers[nTargetLayer].vecGPUTasks.push_back(task);
-	}
+        vLayers[nTargetLayer].vecGPUTasks.push_back(task);
+    }
 
 
-#endif
-#endif
 
     void PixelGameEngine::DrawLineDecal(const olc::vf2d& pos1, const olc::vf2d& pos2, Pixel p)
     {
@@ -9705,6 +9707,8 @@ namespace olc {
         {
             matProjection = mat;
         }
+
+
 
         void DoGPUTask(const olc::GPUTask& task) override
         {

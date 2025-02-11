@@ -51,14 +51,19 @@ class PGE_Mobile : public olc::PixelGameEngine {
 public:
 
     PGE_Mobile() {
-        sAppName = "Quad3D";
+        sAppName = "Hardware3D Assetless Demo";
     }
 
     olc::mf4d matWorld;
     olc::mf4d matView;
     olc::mf4d matProject;
-    olc::utils::hw3d::mesh meshTeapot;
-    olc::Renderable gfx1;
+
+    olc::Renderable texCube;
+    olc::utils::hw3d::mesh meshCube;
+    olc::utils::hw3d::mesh meshLightCube;
+
+    std::array<olc::vf3d, 64> cubes;
+    std::array<olc::vf3d, 3> lights;
 
     /* Vectors */
     std::vector<std::string> vecMessages;
@@ -110,85 +115,6 @@ public:
 
 public:
     bool OnUserCreate() override {
-        //NOTE: To access the features with your phone device use:
-#if defined(__ANDROID__)
-        // Access android directly
-        //android_app* pMyAndroid = this->pOsEngine.app;
-
-        // USE OF SOUND olcPGE_MiniAudio
-        /*
-         * For Android you cannot play the sounds directly from the assets as you would
-         * on a Windows/Mac/Linux system. Android compress your assets in a compress file to
-         * save on valuable phone storage. AndroidAudio (AAudio), miniAudio, and most others need
-         * to be able to stream the music data, in short they are not very good at streaming for
-         * a compress file.
-         * Therefore you will need to extract these sound files to internal storage so the sounds
-         * can be played.
-         *
-         * In short, as I know you didn't read the above, you cannot stream from an asset in Android
-         *
-         */
-
-        std::string songFullPath = (std::string)app_GetInternalAppStorage() + "/sounds/song1.mp3";
-        olc::rcode fileRes = olc::filehandler->ExtractFileFromAssets("sounds/song1.mp3", songFullPath);
-
-        switch (fileRes) {
-
-        case olc::rcode::NO_FILE:
-        case olc::rcode::FAIL:
-        { break; }
-        case olc::rcode::OK:
-        {
-            // only load the song if it is not already loaded
-            song1 = ma.LoadSound(songFullPath);
-
-            break;
-        }
-        }
-
-        sampleAFullPath = (std::string)app_GetInternalAppStorage() + "/sounds/SampleA.wav";
-        olc::rcode result = olc::filehandler->ExtractFileFromAssets("sounds/SampleA.wav", sampleAFullPath);
-
-
-#endif
-
-#if defined(__APPLE__)
-        // Access iOS directly
-        //apple_app* pMyApple = this->pOsEngine.app;
-
-        // USE OF SOUND olcPGE_MiniAudio
-
-        std::string songFullPath = (std::string)app_GetInternalAppStorage() + "/sounds/song1.mp3";
-        olc::rcode fileRes = olc::filehandler->ExtractFileFromAssets("sounds/song1.mp3", songFullPath);
-
-        switch (fileRes) {
-
-        case olc::rcode::NO_FILE:
-        case olc::rcode::FAIL:
-        { break; }
-        case olc::rcode::OK:
-        {
-            if (song1 < 0)
-            {
-                song1 = ma.LoadSound(songFullPath);
-            }
-
-            break;
-        }
-        }
-
-        sampleAFullPath = (std::string)app_GetInternalAppStorage() + "/sounds/SampleA.wav";
-        olc::rcode result = olc::filehandler->ExtractFileFromAssets("sounds/SampleA.wav", sampleAFullPath);
-
-#endif
-
-        sprTouchTester = new olc::Sprite("images/north_south_east_west_logo.png");
-        decTouchTester = new olc::Decal(sprTouchTester);
-
-        sprOLCPGEMobLogo = new olc::Sprite("images/olcpgemobilelogo.png");
-        decOLCPGEMobLogo = new olc::Decal(sprOLCPGEMobLogo);
-
-        gfx1.Load("images/clay.png");
 
         float fAspect = float(GetScreenSize().y) / float(GetScreenSize().x);
         float S = 1.0f / (tan(3.14159f * 0.25f));
@@ -203,16 +129,44 @@ public:
         matWorld.identity();
         matView.identity();
 
-        // ok we need to extract the file folks
-        std::string storagePath = (std::string)app_GetInternalAppStorage() + "/objectfiles/teapot.obj";
-        fileRes = olc::filehandler->ExtractFileFromAssets("objectfiles/teapot.obj", storagePath);
-        auto t = olc::utils::hw3d::LoadObj(storagePath);
-        if (t.has_value())
-            meshTeapot = *t;
-        else
-            return false;
+        // Create a unit cube, centered on origin
+        meshCube = olc::utils::hw3d::CreateCube({ 1,1,1 }, {-0.5, -0.5, -0.5});
 
-        Clear(olc::CYAN);
+        // Creat another cube, smaller
+        meshLightCube = olc::utils::hw3d::CreateCube({ 0.5,0.5,0.5 }, { -0.25, -0.25, -0.25 });
+
+        // Why 2 cubes? the regular ones will have their vertex information recoloured
+
+        // Create texture (so we dont need to load anything)
+        texCube.Create(128, 128);
+        SetDrawTarget(texCube.Sprite());
+        Clear(olc::WHITE);
+        FillCircle(64, 64, 32, olc::BLACK);
+        FillCircle(64, 64, 24, olc::BLUE);
+        FillCircle(64, 64, 16, olc::RED);
+        FillCircle(64, 64, 8, olc::YELLOW);
+        SetDrawTarget(nullptr);
+        texCube.Decal()->Update();
+
+        // Position cubes nicely
+        for(int x=0; x<8; x++)
+            for (int y = 0; y < 8; y++)
+            {
+                float z = sin(float(x)) + cos(float(y));
+                cubes[y * 8 + x] = { float(x) - 4.0f, float(z), float(y) - 4.0f };
+            }
+
+
+        Clear(olc::VERY_DARK_BLUE);
+        HW3D_Projection(matProject.m);
+        HW3D_SetCullMode(olc::CullMode::CCW);
+
+        sprTouchTester = new olc::Sprite("images/north_south_east_west_logo.png");
+        decTouchTester = new olc::Decal(sprTouchTester);
+
+        sprOLCPGEMobLogo = new olc::Sprite("images/olcpgemobilelogo.png");
+        decOLCPGEMobLogo = new olc::Decal(sprOLCPGEMobLogo);
+
 
         return true;
     }
@@ -242,8 +196,10 @@ public:
 
     }
 
-    float fThetaX = 0;
-    float fThetaY = 0;
+    float fThetaX = 1;
+    float fThetaY = 2;
+
+    float fLightTime = 0.0f;
 
     bool OnUserUpdate(float fElapsedTime) override {
 
@@ -273,33 +229,6 @@ public:
         sMessage = "---";
         vecMessages.push_back(sMessage);
 
-        //sMessage = "Volume <" + std::to_string(volume) + "> Btn Up, Btn Down";
-        //vecMessages.push_back(sMessage);
-
-        //if (ma.IsPlaying(song1))
-        //{
-           // sMessage = "Touch Screen: Pause";
-           // vecMessages.push_back(sMessage);
-       // }
-       // else
-        //{
-            //sMessage = "Touch Screen: Play";
-            //vecMessages.push_back(sMessage);
-        //}
-
-        sMessage = "---";
-        vecMessages.push_back(sMessage);
-
-
-        std::string sTouchScreen = "Touch the screen with two fingers";
-        vecMessages.push_back(sTouchScreen);
-
-        vecMessages.push_back(sLineBreak);
-
-        olc::vi2d centreScreenPos = GetScreenSize();
-        centreScreenPos.x = centreScreenPos.x / 2;
-        centreScreenPos.y = centreScreenPos.y / 2;
-        //DrawTargetPointer(centreScreenPos, 50, 10);
 
         // Get the default touch point
         // This is always Index 0 and first touch point
@@ -307,81 +236,75 @@ public:
         std::string defaultTouch = "Default Touch 0:  X: " + std::to_string(defaultTouchPos.x) + " Y: " + std::to_string(defaultTouchPos.y);
         vecMessages.push_back(defaultTouch);
 
-        if (GetTouch().bHeld)
+        // New code:
+// spin stuff
+        fThetaX += fElapsedTime * 0.1f;
+        fThetaY += fElapsedTime * 0.05f;
+
+        olc::mf4d m1, m2, m3, m4;
+
+        // fake a pseudo-view matrix by transforming in an identity view
+        m1.rotateY(fThetaY);
+        m2.rotateX(fThetaX);
+        m3.translate(0.0, 0.0, -10.0);
+        matView = m3 * m2 * m1;
+
+        // Clear background
+        ClearBuffer(olc::CYAN, true);
+
+        // Update light positions
+        fLightTime += fElapsedTime;
+        lights[0] = { 6.0f * sin(fLightTime * 2.5f), 6.0f * cos(fLightTime * 2.5f), 0.0f };
+        lights[1] = { 0.0f, 6.0f * sin(fLightTime), 6.0f * cos(fLightTime) };
+        lights[2] = { 6.0f * cos(fLightTime * 1.7f), 0.0f, 6.0f * sin(fLightTime * 1.7f) };
+
+        // World Space lighting! The 3 lights are used as directional light sources
+        // so i dont need to pre-compute all the geometry on the CPU. This is a
+        // limitation of the hw3d approach but like I said, its for basic 3D usage.
+        for (size_t i = 0; i < meshCube.pos.size(); i += 3)
         {
-            DrawLine(centreScreenPos, defaultTouchPos, olc::YELLOW, 0xF0F0F0F0);
-            DrawTargetPointer(defaultTouchPos, 50, 10, olc::YELLOW);
-        }
+            const auto& p0 = meshCube.pos[i + 0];
+            const auto& p1 = meshCube.pos[i + 1];
+            const auto& p2 = meshCube.pos[i + 2];
 
-        /*
-            You asked for Multi-touch... you got it!
-            You can support up to 126 touch points, however most phones and tablets can only handle 5
+            // Hand calculate surface normal (i know i know the norms are already there...)
+            olc::vf3d vCross = olc::vf3d(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]).cross(olc::vf3d(p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])).norm();
 
-            As always with touch sensors it is an approximate and always will be
-            I would recommend no more that 3 points
+            // Additive colouring
+            meshCube.col[i + 0] = olc::BLACK;
+            meshCube.col[i + 1] = olc::BLACK;
+            meshCube.col[i + 2] = olc::BLACK;
 
-            When you are using lots of touch points it is best to run ClearTouchPoints();
-            every so often to ensure lost touch points are cleared
-
-        */
-
-        olc::vi2d touchPos;
-        // The more touch points the harder to manage
-        for (int8_t i = 1; i < 5; i++)
-        {
-            if (GetTouch(i).bHeld)
+            olc::Pixel c[] = { olc::RED, olc::GREEN, olc::BLUE };
+            for (int j = 0; j < 3; j++)
             {
-
-                touchPos = GetTouchPos(i);
-                std::string TouchID = "Touch ID: " + std::to_string(i) + " X: " + std::to_string(touchPos.x) + " Y: " + std::to_string(touchPos.y);
-                vecMessages.push_back(TouchID);
-                DrawLine(centreScreenPos, touchPos, olc::WHITE, 0xF0F0F0F0);
-                DrawTargetPointer(touchPos, 50, 10);
-
+                olc::vf3d vLight = -lights[j].norm();
+                float illum = std::max(-vCross.dot(vLight), 0.0f) * 0.8f + 0.2f;
+                meshCube.col[i + 0] += olc::PixelF(illum, illum, illum, 1.0f) * c[j];
+                meshCube.col[i + 1] += olc::PixelF(illum, illum, illum, 1.0f) * c[j];
+                meshCube.col[i + 2] += olc::PixelF(illum, illum, illum, 1.0f) * c[j];
             }
         }
 
 
-        fThetaX += fElapsedTime * 0.5f;
-        fThetaY += fElapsedTime * 1.3f;
-
-        olc::mf4d m1, m2, m3, m4;
-
-        m1.rotateY(fThetaY);
-        m2.rotateX(fThetaX);
-        m3.translate(0.0, -4.0, -10.0);
-        matWorld = m3 * m1 * m2;
-
-        ClearBuffer(olc::CYAN, true);
-
-
-        HW3D_Projection(matProject.m);
-
-        for (size_t i = 0; i < meshTeapot.pos.size(); i += 3)
+        // Draw all cubes
+        for (const auto& cube : cubes)
         {
-            const auto& p0 = meshTeapot.pos[i + 0];
-            const auto& p1 = meshTeapot.pos[i + 1];
-            const auto& p2 = meshTeapot.pos[i + 2];
-
-            olc::vf3d vCross = olc::vf3d(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]).cross(olc::vf3d(p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])).norm();
-
-            olc::vf3d vLight = olc::vf3d(1.0f, 1.0f, 1.0f).norm();
-
-            float illum = std::clamp(vCross.dot(vLight), 0.0f, 1.0f) * 0.6f + 0.4f;
-            meshTeapot.col[i + 0] = olc::PixelF(illum, illum, illum, 1.0f);
-            meshTeapot.col[i + 1] = olc::PixelF(illum, illum, illum, 1.0f);
-            meshTeapot.col[i + 2] = olc::PixelF(illum, illum, illum, 1.0f);
+            matWorld.translate(cube);
+            HW3D_DrawObject((matView * matWorld).m, texCube.Decal(), meshCube.layout, meshCube.pos, meshCube.uv, meshCube.col);
         }
 
+        // Draw light cubes
+        matWorld.translate(lights[0]);
+        HW3D_DrawObject((matView * matWorld).m, nullptr, meshLightCube.layout, meshLightCube.pos, meshLightCube.uv, meshLightCube.col, olc::RED);
+        matWorld.translate(lights[1]);
+        HW3D_DrawObject((matView * matWorld).m, nullptr, meshLightCube.layout, meshLightCube.pos, meshLightCube.uv, meshLightCube.col, olc::GREEN);
+        matWorld.translate(lights[2]);
+        HW3D_DrawObject((matView * matWorld).m, nullptr, meshLightCube.layout, meshLightCube.pos, meshLightCube.uv, meshLightCube.col, olc::BLUE);
 
-        HW3D_DrawLine((matView * matWorld).m, { 0.0f, 0.0f, 0.0f }, { 100.0f, 100.0f, 100.0f }, olc::RED);
 
-        HW3D_DrawLineBox((matView * matWorld).m, { 0.0f, 0.0f, 0.0f }, { 10.0f, 10.0f, 10.0f }, olc::YELLOW);
 
-        HW3D_DrawObject((matView * matWorld).m, nullptr, meshTeapot.layout, meshTeapot.pos, meshTeapot.uv, meshTeapot.col);
-
-        // Make sure we have not botched 2D Decals
-        DrawDecal(GetTouchPos(), gfx1.Decal());
+        // End new code
 
 
 
@@ -397,56 +320,11 @@ public:
 
 
 
-        if (GetTouch(0).bPressed) {
-            // Toggle takes a sample ID (int) and either starts playback or pauses playback
-            // depending on whether the sample is currently playing, or not.
-            ma.Toggle(song1);
-        }
-
-        if (GetTouch(1).bPressed) {
-            ma.Play(sampleAFullPath);
-        }
-
-        if (GetKey(olc::A).bHeld)
-        {
-            volume += 1.0f * fElapsedTime;
-            if (volume > 1.0f) volume = 1.0f;
-        }
-
-        if (GetKey(olc::B).bHeld)
-        {
-            volume -= 1.0f * fElapsedTime;
-            if (volume < 0.0f) volume = 0.0f;
-        }
-
-        if (GetKey(olc::VOLUME_DOWN).bHeld) {
-            // NOTE: Android volume buttons can be read but cannot be captured
-            // NOTE: iOS volume buttons cannot be read and cannot be captured
-            volume -= 1.0f * fElapsedTime;
-            if (volume < 0.0f) volume = 0.0f;
-        }
-
-        if (GetKey(olc::VOLUME_UP).bHeld) {
-            // NOTE: Android volume buttons can be read but cannot be captured
-            // NOTE: iOS volume buttons cannot be read and cannot be captured
-            volume += 1.0f * fElapsedTime;
-            if (volume > 1.0f) volume = 1.0f;
-        }
-
-        // Set volume, takes a sample ID (int), and a float
-        // 0.0 to 1.0 where 1.0 is full volume
-        ma.SetVolume(song1, volume);
-
-        // Gets the current playback position in the provided sample ID (int),
-        // returns float 0.0 to 1.0, nearer 1.0 is near the end
-        seek = ma.GetCursorFloat(song1);
 
 
         // Draw Logo
         DrawDecal({ 5.0f, (float)ScreenHeight() - 100 }, decOLCPGEMobLogo, { 0.5f, 0.5f });
 
-        // Draw The Playback Cursor (aka the position in the sound file)
-        FillRect({ 0, ScreenHeight() - 10 }, { (int)(ScreenWidth() * seek), 10 }, olc::YELLOW);
 
         return true;
     }
