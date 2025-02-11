@@ -65,6 +65,8 @@ public:
     std::array<olc::vf3d, 64> cubes;
     std::array<olc::vf3d, 3> lights;
 
+    olc::utils::hw3d::mesh meshTeapot;
+
     /* Vectors */
     std::vector<std::string> vecMessages;
     /* END Vectors*/
@@ -115,6 +117,39 @@ public:
 
 public:
     bool OnUserCreate() override {
+
+        /*
+         * Loading object (blender. mp3 etc) files is different on the PGE Mobile to PGE
+         * Loading of images (bmp, png etc) is the exact same as PGE
+         *      I don't make the runs, Google and Apple do.
+         * The example below shows how to do it
+         * */
+
+        // PGE 2.0 Code:
+        // auto t = olc::utils::hw3d::LoadObj("./assets/teapot.obj");
+        // I know simple right, however mobile devices are different
+
+        // 1: We need to get the path to where your phone OS as placed it your app
+        std::string strObjectFileFullPath = (std::string)app_GetExternalAppStorage()  + "/objectfiles/teapot.obj";
+        // NOTE: for iOS use:
+
+        // 2: Now we need to extract the file from compress storage to usable store
+        olc::rcode fileRes = olc::filehandler->ExtractFileFromAssets("/objectfiles/teapot.obj", strObjectFileFullPath);
+        // Note for iOS use:
+
+        // 3 Use the rcode to check if everything worked
+        switch (fileRes) {
+
+            case olc::rcode::NO_FILE:
+            case olc::rcode::FAIL:
+            { break; }
+            case olc::rcode::OK:
+            {
+                auto t = olc::utils::hw3d::LoadObj(strObjectFileFullPath);
+                if (t.has_value()) meshTeapot = *t;
+            }
+        }
+
 
         float fAspect = float(GetScreenSize().y) / float(GetScreenSize().x);
         float S = 1.0f / (tan(3.14159f * 0.25f));

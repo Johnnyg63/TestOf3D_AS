@@ -6915,11 +6915,11 @@ namespace olc {
                 DrawPartialDecal(vScaleCR * vBoomCR[y * sprCR.Sprite()->width + x].first * 2.0f, sprCR.Decal(), olc::vf2d(x, y), { 1, 1 }, vScaleCR * 2.0f, olc::PixelF(1.0f, 1.0f, 1.0f, std::min(1.0f, std::max(4.0f - fParticleTimeCR, 0.0f))));
             }
 
-        olc::vi2d vSize = GetTextSizeProp("Powered By Pixel Game Engine Mobile 2.2.8");
-        DrawStringPropDecal(olc::vf2d(float(ScreenWidth() / 2) - vSize.x / 2, float(ScreenHeight()) - vSize.y * 2.0f), "Powered By Pixel Game Engine Mobile 2.2.8", olc::PixelF(1.0f, 1.0f, 1.0f, 0.5f), olc::vf2d(1.0, 1.0f));
+        olc::vi2d vSize = GetTextSizeProp("Powered By Pixel Game Engine Mobile 2.2.X");
+        DrawStringPropDecal(olc::vf2d(float(ScreenWidth() / 2) - vSize.x / 2, float(ScreenHeight()) - vSize.y * 2.0f), "Powered By Pixel Game Engine Mobile 2.2.x", olc::PixelF(1.0f, 1.0f, 1.0f, 0.5f), olc::vf2d(1.0, 1.0f));
 
-        vSize = GetTextSizeProp("Copyright OneLoneCoder.com 2024.");
-        DrawStringPropDecal(olc::vf2d(float(ScreenWidth() / 2) - vSize.x / 2, float(ScreenHeight()) - vSize.y * 3.0f), "Copyright OneLoneCoder.com 2024", olc::PixelF(1.0f, 1.0f, 1.0f, 0.5f), olc::vf2d(1.0, 1.0f));
+        vSize = GetTextSizeProp("Copyright OneLoneCoder.com 2025.");
+        DrawStringPropDecal(olc::vf2d(float(ScreenWidth() / 2) - vSize.x / 2, float(ScreenHeight()) - vSize.y * 3.0f), "Copyright OneLoneCoder.com 2025", olc::PixelF(1.0f, 1.0f, 1.0f, 0.5f), olc::vf2d(1.0, 1.0f));
 
 
         return true;
