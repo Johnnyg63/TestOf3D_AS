@@ -9320,7 +9320,8 @@ namespace olc {
             // This is a heavy going function, but must run in order to ensure the app loads
 
             // 1: Setup out OpenGLES settings (NOTE: these are not the same as in the PGE 2.0)
-            EGLint const attribute_list[] = { EGL_SURFACE_TYPE, EGL_OPENGL_ES2_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_NONE };
+            EGLint const attribute_list[] = { EGL_SURFACE_TYPE, EGL_OPENGL_ES2_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8,
+                                              EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_DEPTH_SIZE, 16, EGL_NONE };
             EGLint const context_config[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
             EGLint num_config;
             EGLint w, h, format;
@@ -9880,6 +9881,7 @@ namespace olc {
                     EGL_GREEN_SIZE, 8,
                     EGL_BLUE_SIZE, 8,
                     EGL_ALPHA_SIZE, 8,
+                    EGL_DEPTH_SIZE, 16,
                     EGL_NONE };
 
             // The default display is probably what you want on Android
@@ -9899,13 +9901,15 @@ namespace olc {
                     supportedConfigs.get(),
                     supportedConfigs.get() + numConfigs,
                     [&display](const EGLConfig& config) {
-                        EGLint red, green, blue, alpha;
+                        EGLint red, green, blue, alpha, depth;
                         if (eglGetConfigAttrib(display, config, EGL_RED_SIZE, &red)
                             && eglGetConfigAttrib(display, config, EGL_GREEN_SIZE, &green)
                             && eglGetConfigAttrib(display, config, EGL_BLUE_SIZE, &blue)
-                            && eglGetConfigAttrib(display, config, EGL_ALPHA_SIZE, &alpha)) {
+                            && eglGetConfigAttrib(display, config, EGL_ALPHA_SIZE, &alpha)
+                               && eglGetConfigAttrib(display, config, EGL_DEPTH_SIZE, &depth)
+                            ) {
 
-                            return red == 8 && green == 8 && blue == 8 && alpha == 8;
+                            return red == 8 && green == 8 && blue == 8 && alpha == 8 && depth == 16;
                         }
                         return false;
                     });
